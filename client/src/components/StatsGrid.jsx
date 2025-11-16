@@ -1,8 +1,12 @@
+import { useUser } from "@clerk/clerk-react";
 import { FolderOpen, CheckCircle, Users, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 
 export default function StatsGrid() {
+
+    const { user } = useUser();
+
     const currentWorkspace = useSelector(
         (state) => state?.workspace?.currentWorkspace || null
     );
@@ -51,37 +55,59 @@ export default function StatsGrid() {
     ];
 
     useEffect(() => {
-        if (currentWorkspace) {
+        if (currentWorkspace && user) {
+
+            const userEmail = user.primaryEmailAddress?.emailAddress;
+            const isAdmin = currentWorkspace.owner.email === userEmail;
+
             setStats({
                 totalProjects: currentWorkspace.projects.length,
+
                 activeProjects: currentWorkspace.projects.filter(
                     (p) => p.status !== "CANCELLED" && p.status !== "COMPLETED"
                 ).length,
+
                 completedProjects: currentWorkspace.projects
                     .filter((p) => p.status === "COMPLETED")
                     .reduce((acc, project) => acc + project.tasks.length, 0),
+
+                // ADMIN → sees ALL tasks
+                // USER  → sees ASSIGNED tasks only
                 myTasks: currentWorkspace.projects.reduce(
                     (acc, project) =>
                         acc +
-                        project.tasks.filter(
-                            (t) => t.assignee?.email === currentWorkspace.owner.email
+                        project.tasks.filter((t) =>
+                            isAdmin ? true : t.assignee?.email === userEmail
                         ).length,
                     0
                 ),
+
                 overdueIssues: currentWorkspace.projects.reduce(
                     (acc, project) =>
-                        acc + project.tasks.filter((t) => t.due_date < new Date()).length,
+                        acc +
+                        project.tasks.filter(
+                            (t) => new Date(t.due_date) < new Date()
+                        ).length,
                     0
                 ),
             });
         }
-    }, [currentWorkspace]);
+    }, [currentWorkspace, user]);
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 my-9">
             {statCards.map(
-                ({ icon: Icon, title, value, subtitle, bgColor, textColor }, i) => (
-                    <div key={i} className="bg-white dark:bg-zinc-950 dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition duration-200 rounded-md" >
+                (
+                    { icon: Icon, title, value, subtitle, bgColor, textColor },
+                    i
+                ) => (
+                    <div
+                        key={i}
+                        className="bg-white dark:bg-zinc-950 dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 
+                                   border border-zinc-200 dark:border-zinc-800 
+                                   hover:border-zinc-300 dark:hover:border-zinc-700 
+                                   transition duration-200 rounded-md"
+                    >
                         <div className="p-6 py-4">
                             <div className="flex items-start justify-between">
                                 <div>
